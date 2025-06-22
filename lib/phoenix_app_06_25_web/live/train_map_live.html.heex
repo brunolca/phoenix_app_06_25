@@ -1,0 +1,136 @@
+<div class="h-screen flex flex-col">
+  <!-- Header -->
+  <div class="bg-blue-900 text-white p-4 shadow-lg">
+    <div class="flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold">France Train Map</h1>
+        <p class="text-blue-200">Real-time train positions across France</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="text-sm">
+          <span class="font-semibold"><%= @total_trains %></span> active trains
+          <div class="text-xs text-blue-200 mt-1">
+            <span class="inline-flex items-center gap-1">
+              <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              Auto-refresh every 5s
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Container -->
+  <div class="flex-1 relative">
+    <!-- Train data stream for JavaScript hook -->
+    <div id="trains" phx-update="stream" class="hidden">
+      <%= for {id, train} <- @streams.trains do %>
+        <div id={id} data-train={Jason.encode!(serialize_train(train))}></div>
+      <% end %>
+    </div>
+    
+    <div 
+      id="train-map" 
+      class="w-full h-full relative"
+      phx-hook="TrainMap"
+      phx-ignore
+    >
+      <!-- Loading state will be replaced by JavaScript -->
+      <div class="absolute inset-0 flex items-center justify-center bg-gray-100">
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-900 mx-auto"></div>
+          <p class="mt-4 text-gray-600">Loading train map...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Train Info Popup -->
+    <%= if @selected_train do %>
+      <div class="absolute top-4 right-4 bg-white rounded-lg shadow-xl border p-4 w-80 z-[1000]">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-lg font-bold text-gray-900">
+            <%= @selected_train.train_number %>
+          </h3>
+          <button 
+            phx-click="close-popup"
+            class="text-gray-400 hover:text-gray-600 text-xl"
+          >
+            ×
+          </button>
+        </div>
+        
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-600">Operator:</span>
+            <span class="font-medium"><%= @selected_train.operator %></span>
+          </div>
+          
+          <%= if @selected_train.route_short_name do %>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Route:</span>
+              <span class="font-medium"><%= @selected_train.route_short_name %></span>
+            </div>
+          <% end %>
+          
+          <%= if @selected_train.speed_kmh do %>
+            <div class="flex justify-between">
+              <span class="text-gray-600">Speed:</span>
+              <span class="font-medium"><%= Decimal.round(@selected_train.speed_kmh, 0) %> km/h</span>
+            </div>
+          <% end %>
+          
+          <div class="flex justify-between">
+            <span class="text-gray-600">Status:</span>
+            <span class={[
+              "font-medium",
+              if(@selected_train.delay_seconds && @selected_train.delay_seconds > 300, do: "text-red-600", else: "text-green-600")
+            ]}>
+              <%= format_delay(@selected_train.delay_seconds) %>
+            </span>
+          </div>
+          
+          <div class="flex justify-between">
+            <span class="text-gray-600">Position:</span>
+            <span class="font-mono text-xs">
+              <%= Decimal.round(@selected_train.latitude, 4) %>, 
+              <%= Decimal.round(@selected_train.longitude, 4) %>
+            </span>
+          </div>
+          
+          <div class="flex justify-between">
+            <span class="text-gray-600">Last Update:</span>
+            <span class="text-xs">
+              <%= if @selected_train.timestamp do %>
+                <%= Calendar.strftime(@selected_train.timestamp, "%H:%M:%S") %>
+              <% else %>
+                Unknown
+              <% end %>
+            </span>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <!-- Legend -->
+  <div class="bg-gray-50 border-t p-3">
+    <div class="flex items-center justify-center gap-6 text-sm">
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+        <span>TGV (High-speed)</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+        <span>TER (Regional)</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+        <span>Intercités</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-gray-500"></div>
+        <span>Other</span>
+      </div>
+    </div>
+  </div>
+</div>
